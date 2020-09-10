@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "Model.h"
+#include "PlayerModel.h"
 
 
 int ProcessLoop();
@@ -27,10 +28,7 @@ typedef enum {
 #define ANIM_NEUTRAL 0
 //走りアニメーションの番号
 #define ANIM_RUN 1
-//ジャンプアニメーションの番号
-#define ANIM_JUMP 2
-//攻撃アニメーションの番号
-#define ANIM_ATTACK 3
+
 //１フリップ当たりのカメラの回転角度
 #define CAMERA_ANGLE_SPEED 2.0f
 //カメラの注視点の高さ
@@ -49,7 +47,7 @@ typedef enum {
 //敵の出現時距離
 #define GHOST_DISTANCE 400.0f
 //敵の出現間隔時間
-#define GHOST_TIME 30
+#define GHOST_TIME 100
 //敵の透過度合い
 #define GHOST_TRANSPARENT_RATE 0.45f
 
@@ -63,15 +61,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	static int nowMode; //現在の画面(シーン)
 
-	//プレイヤーのモデルとアニメ関係
-	int playerModelHandle, attachIndex, animIndexToBeAttached, animIndexAttached;
-	VECTOR position, moveVector;
-	float angle, totalTime, playTime;
+	
 	//背景関連
 	int bgModelHandle1, bgModelHandle2, bgModelHandle3, bgModelHandle4, bgModelHandle5;
 	//カメラ関係
 	float  cameraHAngle, cameraVAngle;
 	//敵関連
+	bool ghostNumberFlag = FALSE;
 	int ghostCounter, ghostModelHandle[GHOST_NUMBER];
 	float ghostTotalTime, ghostPositionX, ghostPositionZ;
 	float ghostAngle[GHOST_NUMBER], ghostPlayTime[GHOST_NUMBER];
@@ -81,13 +77,19 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	char key[256]; //キーの押下状態を格納 
 	char oldKey[256]; //前のフレームのキーの押下状態を格納
 
+	
+
 	//SetBackgroundColor(50, 155, 255)
 	ChangeWindowMode(TRUE), SetWindowSizeChangeEnableFlag(TRUE), SetBackgroundColor(0, 0, 0), SetDrawScreen(DX_SCREEN_BACK);
 	SetGraphMode(1000, 750, 32);
 	if (DxLib_Init() == -1)	{return -1;}
 
 
+	//プレイヤーのモデルをロード
+	PlayerModel playerModel(MV1LoadModel("dat/Lat式ミク/Lat式ミクVer2.3_Normalエッジ無し専用.pmd"));
+
 	
+
 
 	//バックグラウンドのモデルをロード
 	bgModelHandle1 = MV1LoadModel("dat/アノマロさん/デッドマスターの部屋/デッドマスターの部屋.x");
@@ -96,20 +98,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	MV1SetScale(bgModelHandle1, VGet(30.0f, 30.0f, 30.0f));
 	MV1SetScale(bgModelHandle2, VGet(30.0f, 30.0f, 30.0f));
 	
+	
 
-	//プレイヤーのモデルをロード、アタッチ済みのアニメの番号を存在しないものに、アニメの再生時間を初期化
-	playerModelHandle = MV1LoadModel("dat/Lat式ミク/Lat式ミクVer2.3_Normalエッジ無し専用.pmd");
-	animIndexAttached = 999;
-	playTime = 0.0f;
+
 
 	// カメラの向きを初期化
 	cameraHAngle = 0.0f;
 	cameraVAngle = -3.0f;
 	SetCameraNearFar(15.0f, 3500.0f);
 
-	// プレイヤーの向きと位置を初期化
-	angle = 0.0f;
-	position = VGet(0.0f, 0.0f, 0.0f);
+
 
 	//敵のモデルをロード
 	ghostModelHandle[0] = MV1LoadModel("dat/ミク三姉妹のお化け/ミクお化け/ミクお化けVer1.0.pmd");
@@ -136,6 +134,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	//メインループ
 	while (ProcessLoop() == 0) {
 		loopCounter++;
+		if (loopCounter == 30) {
+			loopCounter == 0;
+		}else
+			loopCounter++;
 		
 		
 
@@ -155,72 +157,56 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 			CameraRotationKey(cameraHAngle, cameraVAngle);
 
 			// 移動ベクトルを初期化
-			moveVector = VGet(0.0f, 0.0f, 0.0f);
+			playerModel.moveVector = VGet(0.0f, 0.0f, 0.0f);
 
 			//方向キー：1フリップでのキャラクターの移動ベクトルと向きを設定, アニメーション番号を走りに設定
-			PlayerMoveKey(angle, cameraHAngle, moveVector, animIndexToBeAttached);
+			playerModel.moveKey(cameraHAngle);
 
 			//プレイヤーの位置と向きを算出
-			CalPlayerPosition(animIndexToBeAttached, cameraHAngle, &position, moveVector);
+			playerModel.calPosition(cameraHAngle);
 
 			//プレイヤーの位置と向きをセット後、描画
-			MV1DrawPositionedModel(playerModelHandle, angle, position);
+			playerModel.drawModel();
+			MV1DrawModel(playerModel.modelHandle);
 
-			// ３Ｄモデルの描画
-			MV1DrawModel(playerModelHandle);
 
 			// カメラの位置と向きを算出、セット
-			SetCameraPosition(position, cameraVAngle, cameraHAngle);
+			SetCameraPosition(playerModel.position, cameraVAngle, cameraHAngle);
 
 			//必要ならアニメーションを変更、時間を進める
-			AnimChanger(animIndexToBeAttached, &animIndexAttached, &attachIndex, playerModelHandle, &playTime, &totalTime);
-
+			playerModel.animChange();
 		}
-		
+			
 
 		//一定時間ごとに敵の数を増やす
-		if (loopCounter%GHOST_TIME == 0 && ghostCounter <GHOST_NUMBER) {
-
-
-			ghostModelHandle[ghostCounter] = MV1DuplicateModel(ghostModelHandle[0]);
-			MV1SetOpacityRate(ghostModelHandle[ghostCounter], GHOST_TRANSPARENT_RATE); //敵モデルの半透明化
-			MV1SetScale(ghostModelHandle[ghostCounter], VGet(4.0f, 4.0f, 4.0f));
-
+		if (loopCounter%GHOST_TIME == 0) {
 			do {
 				
 				ghostPositionX = rand() % 2401 - 1200;
 				ghostPositionZ = rand() % 2401 - 1200;
 				ghostPosition[ghostCounter] = VGet(ghostPositionX, 0.0f, ghostPositionZ);
-				ghostToPlayer[ghostCounter] = VSub(position, ghostPosition[ghostCounter]);
+				ghostToPlayer[ghostCounter] = VSub(playerModel.position, ghostPosition[ghostCounter]);
 			} while (VSize(ghostToPlayer[ghostCounter]) <GHOST_DISTANCE  );
 
+			if (ghostNumberFlag == FALSE) {
+				ghostModelHandle[ghostCounter] = MV1DuplicateModel(ghostModelHandle[0]);
+				MV1SetOpacityRate(ghostModelHandle[ghostCounter], GHOST_TRANSPARENT_RATE); //敵モデルの半透明化
+				MV1SetScale(ghostModelHandle[ghostCounter], VGet(4.0f, 4.0f, 4.0f));
+			}
 			ghostCounter++;
+			if (ghostCounter == GHOST_NUMBER) {
+				ghostNumberFlag = TRUE;
+				ghostCounter = 0;
+			}
 		}
-		else if (loopCounter % GHOST_TIME == 0 && ghostCounter%GHOST_NUMBER >= 1 ) {
+		
+
+		//ループごとに全エネミーを移動、再描画
+		
 			
-			MV1DeleteModel(ghostModelHandle[ghostCounter%GHOST_NUMBER]);
-			ghostModelHandle[ghostCounter%GHOST_NUMBER] = MV1DuplicateModel(ghostModelHandle[0]);
-			MV1SetOpacityRate(ghostModelHandle[ghostCounter%GHOST_NUMBER], GHOST_TRANSPARENT_RATE); //敵モデルの半透明化
-			MV1SetScale(ghostModelHandle[ghostCounter%GHOST_NUMBER], VGet(4.0f, 4.0f, 4.0f));
-
-			do {
-				
-				ghostPositionX = rand() % 2401 - 1200;
-				ghostPositionZ = rand() % 2401 - 1200;
-				ghostPosition[ghostCounter%GHOST_NUMBER] = VGet(ghostPositionX, 0.0f, ghostPositionZ);
-				ghostToPlayer[ghostCounter%GHOST_NUMBER] = VSub(position, ghostPosition[ghostCounter%GHOST_NUMBER]);
-			} while (VSize(ghostToPlayer[ghostCounter%GHOST_NUMBER]) < GHOST_DISTANCE);
-			ghostCounter++;
-		}
-		else if (loopCounter % 40 == 0 && ghostCounter%GHOST_NUMBER ==0) {
-			ghostCounter++;
-		}
-
-		if (ghostCounter < GHOST_NUMBER) {
-			int d;
-			for (d = 0; d < ghostCounter; d++) {
+			for (int d = 0; d < (ghostNumberFlag? GHOST_NUMBER : ghostCounter); d++) {
 				// ３Ｄモデルに新しい位置座標をセット
-				ghostToPlayer[d] = VSub(position, ghostPosition[d]);
+				ghostToPlayer[d] = VSub(playerModel.position, ghostPosition[d]);
 
 				if (VSize(ghostToPlayer[d]) < 13) {
 					SetFontSize(100);
@@ -236,47 +222,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				ghostPosition[d] = VAdd(ghostPosition[d], ghostMoveVector[d]);
 				MV1SetPosition(ghostModelHandle[d], ghostPosition[d]);
 
-				// ３Ｄモデルの描画	
-				MV1DrawModel(ghostModelHandle[d]);
 
 				//向きをプレイヤーのほうに
-				ghostAngle[d] = atan2(ghostPosition[d].x - position.x, ghostPosition[d].z - position.z);
+				ghostAngle[d] = atan2(ghostPosition[d].x - playerModel.position.x, ghostPosition[d].z - playerModel.position.z);
 				MV1SetRotationXYZ(ghostModelHandle[d], VGet(0.0f, ghostAngle[d], 0.0f));
 
 				//描画
 				MV1DrawModel(ghostModelHandle[d]);
 			}
-		}
-		else if (ghostCounter >= GHOST_NUMBER) {
-
-			int d;
-			for (d = 0; d < GHOST_NUMBER; d++) {
-				// ３Ｄモデルに新しい位置座標をセット
-				ghostToPlayer[d] = VSub(position, ghostPosition[d]);
-
-				if (VSize(ghostToPlayer[d]) < 13) {
-					SetFontSize(60);
-					SetFontThickness(6);
-					//ChangeFont("ＭＳ 明朝");                    
-					//ChangeFontType(DX_FONTTYPE_ANTIALIASING);     //アンチエイリアスフォントに変更
-					DrawString(30, 550, "GAME OVER", GetColor(255, 0, 0));
-				}
-
-				ghostMoveVector[d] = VGet(VNorm(ghostToPlayer[d]).x * GHOST_MOVESPEED, 0.0f, VNorm(ghostToPlayer[d]).z*GHOST_MOVESPEED);
-				ghostPosition[d] = VAdd(ghostPosition[d], ghostMoveVector[d]);
-				MV1SetPosition(ghostModelHandle[d], ghostPosition[d]);
-
-				// ３Ｄモデルの描画	
-				MV1DrawModel(ghostModelHandle[d]);
-
-				//向きをプレイヤーのほうに
-				ghostAngle[d] = atan2(ghostPosition[d].x - position.x, ghostPosition[d].z - position.z);
-				MV1SetRotationXYZ(ghostModelHandle[d], VGet(0.0f, ghostAngle[d], 0.0f));
-
-				//描画
-				MV1DrawModel(ghostModelHandle[d]);
-			}
-		}
+		
 
 		
 
@@ -345,86 +299,10 @@ void CameraRotationKey(float &cameraHAngle, float &cameraVAngle) {
 
 
 
-//方向キー：1フリップでのキャラクターの移動ベクトルと向きを設定, アニメーションナンバーを走りに設定
-void PlayerMoveKey(float &angle, float &cameraHAngle, VECTOR &moveVector, int &animIndexToBeAttached) {
-	if (CheckHitKey(KEY_INPUT_LEFT) == 1 && CheckHitKey(KEY_INPUT_DOWN) != 1 && CheckHitKey(KEY_INPUT_UP) != 1) {
-		angle = 90.0f - cameraHAngle;
-		moveVector.x = -MOVESPEED;
-		animIndexToBeAttached = ANIM_RUN;	
-	}
-	else if (CheckHitKey(KEY_INPUT_LEFT) == 1 && CheckHitKey(KEY_INPUT_DOWN) == 1) {
-		angle = 45.0f - cameraHAngle;
-		moveVector.x = -cos(45.0 / 180.0f * DX_PI_F) * MOVESPEED;
-		moveVector.z = -cos(45.0 / 180.0f * DX_PI_F) * MOVESPEED;
-		animIndexToBeAttached = ANIM_RUN;
-	}
-	else if (CheckHitKey(KEY_INPUT_LEFT) == 1 && CheckHitKey(KEY_INPUT_UP) == 1) {
-		angle = 135.0f - cameraHAngle;
-		moveVector.x = -cos(45.0 / 180.0f * DX_PI_F) * MOVESPEED;
-		moveVector.z = cos(45.0 / 180.0f * DX_PI_F) * MOVESPEED;
-		animIndexToBeAttached = ANIM_RUN;
-	}
-	else if (CheckHitKey(KEY_INPUT_RIGHT) == 1 && CheckHitKey(KEY_INPUT_UP) != 1 && CheckHitKey(KEY_INPUT_DOWN) != 1) {
-		angle = -90.0f - cameraHAngle;
-		moveVector.x = MOVESPEED;
-		animIndexToBeAttached = ANIM_RUN;
-	}
-	else if (CheckHitKey(KEY_INPUT_RIGHT) == 1 && CheckHitKey(KEY_INPUT_DOWN) == 1) {
-		angle = -45.0f - cameraHAngle;
-		moveVector.x = cos(45.0 / 180.0f * DX_PI_F) * MOVESPEED;
-		moveVector.z = -cos(45.0 / 180.0f * DX_PI_F) * MOVESPEED;
-		animIndexToBeAttached = ANIM_RUN;
-	}
-	else if (CheckHitKey(KEY_INPUT_RIGHT) == 1 && CheckHitKey(KEY_INPUT_UP) == 1) {
-		angle = -135.0f - cameraHAngle;
-		moveVector.x = cos(45.0 / 180.0f * DX_PI_F) * MOVESPEED;
-		moveVector.z = cos(45.0 / 180.0f * DX_PI_F) * MOVESPEED;
-		animIndexToBeAttached = ANIM_RUN;
-
-	}
-	else if (CheckHitKey(KEY_INPUT_UP) == 1 && CheckHitKey(KEY_INPUT_RIGHT) != 1 && CheckHitKey(KEY_INPUT_LEFT) != 1) {
-		angle = 180.0f - cameraHAngle;
-		moveVector.z = MOVESPEED;
-		animIndexToBeAttached = ANIM_RUN;
-	}
-	else if (CheckHitKey(KEY_INPUT_DOWN) == 1 && CheckHitKey(KEY_INPUT_RIGHT) != 1 && CheckHitKey(KEY_INPUT_LEFT) != 1) {
-		angle = 0.0f - cameraHAngle;
-		moveVector.z = -MOVESPEED;
-		animIndexToBeAttached = ANIM_RUN;
-	}
-	else if (CheckHitKey(KEY_INPUT_DOWN) != 1 && CheckHitKey(KEY_INPUT_RIGHT) != 1 && CheckHitKey(KEY_INPUT_LEFT) != 1 && CheckHitKey(KEY_INPUT_DOWN) != 1) {
-		
-		animIndexToBeAttached = ANIM_NEUTRAL;
-	}
-
-}
 
 
-//position, movePosition, cameraHAngleから走るプレイヤーの位置と向きを算出
-void CalPlayerPosition(int animIndexToBeAttached, float cameraHAngle, VECTOR* position, VECTOR moveVector) {
 
-	//３dモデルの位置と向きを算出、セット
-	if (animIndexToBeAttached == ANIM_RUN) {
-		VECTOR tempMoveVector;
-		// カメラの角度に合わせて移動ベクトルを回転してから加算
-		float sinParam = sin(cameraHAngle / 180.0f * DX_PI_F);
-		float cosParam = cos(cameraHAngle / 180.0f * DX_PI_F);
-		tempMoveVector.x = moveVector.x * cosParam - moveVector.z * sinParam;
-		tempMoveVector.y = 0.0f;
-		tempMoveVector.z = moveVector.x * sinParam + moveVector.z * cosParam;
-		*position = VAdd(*position, tempMoveVector);
-	}
-}
 
-//3dモデルに位置と角度をセットして描画
-void MV1DrawPositionedModel(int playerModelHandle, float angle,VECTOR position) {
-	// 新しい向きをセット
-	MV1SetRotationXYZ(playerModelHandle, VGet(0.0f, angle / 180.0f * DX_PI_F, 0.0f));
-	// ３Ｄモデルに新しい位置座標をセット
-	MV1SetPosition(playerModelHandle, position);
-	// ３Ｄモデルの描画	
-	MV1DrawModel(playerModelHandle);
-}
 
 
 // カメラの位置と向きを算出、セット
@@ -464,36 +342,6 @@ void SetCameraPosition(VECTOR position, float cameraVAngle, float cameraHAngle) 
 }
 
 
-//アニメーションの時間をすすめる,もし必要ならアニメーションの変更
-void AnimChanger(int animIndexToBeAttached, int *animIndexAttached, int *attachIndex, int playerModelHandle, float *playTime, float *totalTime) {
-	// 今までと状態が変化した場合はアニメーションを変更
-	if (animIndexToBeAttached != *animIndexAttached) {
-
-		// 今までアタッチしていたアニメーションをデタッチ, 新しいアニメーションをアタッチ
-		MV1DetachAnim(playerModelHandle, *attachIndex);
-		if (animIndexToBeAttached == ANIM_RUN) {
-			*attachIndex = MV1AttachAnim(playerModelHandle, ANIM_RUN, -1, FALSE);
-			*animIndexAttached = ANIM_RUN;
-		}
-		else if (animIndexToBeAttached == ANIM_NEUTRAL) {
-			*attachIndex = MV1AttachAnim(playerModelHandle, ANIM_NEUTRAL, -1, FALSE);
-			*animIndexAttached = ANIM_NEUTRAL;
-		}
-
-		*totalTime = MV1GetAttachAnimTotalTime(playerModelHandle, *attachIndex);
-		//playTime = 0.0f;
-	}
-
-	// 再生時間を進める
-	*playTime += 1.5f;
-	// 再生時間がアニメーションの総再生時間に達したらループ
-	if (*playTime >= *totalTime) {
-		*playTime = *playTime - *totalTime;
-	}
-	// 再生時間をセットする
-	MV1SetAttachAnimTime(playerModelHandle, *attachIndex, *playTime);
-
-}
 
 
 

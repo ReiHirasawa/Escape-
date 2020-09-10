@@ -162,6 +162,7 @@
   <ItemGroup>
     <ClInclude Include="DexLibTemplate.h" />
     <ClInclude Include="Model.h" />
+    <ClInclude Include="PlayerModel.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
@@ -170,6 +171,7 @@
     <ClCompile Include="DexLibTemplate.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
+    <ClCompile Include="PlayerModel.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
