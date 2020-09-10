@@ -25,10 +25,6 @@
 
 PlayerModel::PlayerModel(int loadedModel) : Model(loadedModel)
 {
-
-
-
-
 }
 
 

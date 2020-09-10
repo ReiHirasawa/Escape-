@@ -160,7 +160,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="CameraControler.h" />
     <ClInclude Include="DexLibTemplate.h" />
+    <ClInclude Include="EnemyModel.h" />
     <ClInclude Include="Model.h" />
     <ClInclude Include="PlayerModel.h" />
     <ClInclude Include="Resource.h" />
@@ -168,7 +170,9 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CameraControler.cpp" />
     <ClCompile Include="DexLibTemplate.cpp" />
+    <ClCompile Include="EnemyModel.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Model.cpp" />
     <ClCompile Include="PlayerModel.cpp" />

@@ -3,18 +3,18 @@
 #include <math.h>
 #include <stdlib.h>
 #include <time.h>
-#include "Model.h"
+#include <vector>
 #include "PlayerModel.h"
+#include "EnemyModel.h"
+#include "CameraControler.h"
+
 
 
 int ProcessLoop();
 
 void CameraRotationKey(float &cameraHAngle, float &cameraVAngle);
-void PlayerMoveKey(float &angle, float &cameraHAngle, VECTOR &moveVector, int &animIndexToBeAttached);
-void CalPlayerPosition(int animIndexToBeAttached, float cameraHAngle, VECTOR* position, VECTOR moveVector);
-void MV1DrawPositionedModel(int playerModelHandle, float angle, VECTOR position);
+
 void SetCameraPosition(VECTOR position, float cameraVAngle, float cameraHAngle);
-void AnimChanger(int animIndexToBeAttached, int *animIndexAttached, int *attachIndex, int playerModelHandle, float *playTime, float *totalTime);
 void DrawLattice();
 
 
@@ -30,9 +30,9 @@ typedef enum {
 #define ANIM_RUN 1
 
 //１フリップ当たりのカメラの回転角度
-#define CAMERA_ANGLE_SPEED 2.0f
+#define CAMERA_ANGLE_SPEED 3.0f
 //カメラの注視点の高さ
-#define CAMERA_LOOK_AT_HEIGHT 15.0f
+#define CAMERA_LOOK_AT_HEIGHT 30.0f
 //カメラと注視点の距離
 #define CAMERA_LOOK_AT_DISTANCE 100.0f
 // フィールドラインを描く範囲
@@ -41,15 +41,15 @@ typedef enum {
 #define LINE_NUM			24
 
 //敵の数
-#define GHOST_NUMBER  15
+#define GHOST_NUMBER  20
 //敵の動く速さ
 #define GHOST_MOVESPEED 9.0f
 //敵の出現時距離
 #define GHOST_DISTANCE 400.0f
 //敵の出現間隔時間
-#define GHOST_TIME 100
+#define GHOST_TIME 60
 //敵の透過度合い
-#define GHOST_TRANSPARENT_RATE 0.45f
+#define GHOST_TRANSPARENT_RATE 0.7f
 
 
 
@@ -59,23 +59,30 @@ typedef enum {
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 
+
+	srand((unsigned int)time(NULL)); //疑似乱数のシード値を時刻に
 	static int nowMode; //現在の画面(シーン)
 
 	
 	//背景関連
-	int bgModelHandle1, bgModelHandle2, bgModelHandle3, bgModelHandle4, bgModelHandle5;
+	int bgModelHandle1, bgModelHandle2;
 	//カメラ関係
 	float  cameraHAngle, cameraVAngle;
+	CameraControler camera;
+
 	//敵関連
 	bool ghostNumberFlag = FALSE;
-	int ghostCounter, ghostModelHandle[GHOST_NUMBER];
-	float ghostTotalTime, ghostPositionX, ghostPositionZ;
-	float ghostAngle[GHOST_NUMBER], ghostPlayTime[GHOST_NUMBER];
-	VECTOR ghostPosition[GHOST_NUMBER], ghostMoveVector[GHOST_NUMBER], ghostToPlayer[GHOST_NUMBER];
+	int ghostCounter = 0;
+
+	std::vector<EnemyModel> enemyModels;
+
+	
 	//他
-	int debagModeFlag;
+	int debagModeFlag = 0;
 	char key[256]; //キーの押下状態を格納 
 	char oldKey[256]; //前のフレームのキーの押下状態を格納
+
+
 
 	
 
@@ -88,12 +95,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	//プレイヤーのモデルをロード
 	PlayerModel playerModel(MV1LoadModel("dat/Lat式ミク/Lat式ミクVer2.3_Normalエッジ無し専用.pmd"));
 
+
 	
 
 
 	//バックグラウンドのモデルをロード
 	bgModelHandle1 = MV1LoadModel("dat/アノマロさん/デッドマスターの部屋/デッドマスターの部屋.x");
-	//bgModelHandle1 = MV1LoadModel("dat/jimenB6/Jimen_B601.x");
 	bgModelHandle2 = MV1LoadModel("dat/packaged用ステージ1・始まりの場所/packaged用共通の空.x");
 	MV1SetScale(bgModelHandle1, VGet(30.0f, 30.0f, 30.0f));
 	MV1SetScale(bgModelHandle2, VGet(30.0f, 30.0f, 30.0f));
@@ -101,22 +108,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	
 
 
-
 	// カメラの向きを初期化
-	cameraHAngle = 0.0f;
-	cameraVAngle = -3.0f;
+	//cameraHAngle = 0.0f;
+	//cameraVAngle = -3.0f;
 	SetCameraNearFar(15.0f, 3500.0f);
 
 
 
-	//敵のモデルをロード
-	ghostModelHandle[0] = MV1LoadModel("dat/ミク三姉妹のお化け/ミクお化け/ミクお化けVer1.0.pmd");
-	MV1SetOpacityRate(ghostModelHandle[0], GHOST_TRANSPARENT_RATE); //敵モデルの半透明化
-	MV1SetScale(ghostModelHandle[0], VGet(5.0f, 5.0f, 5.0f));
-	ghostPositionX = 0.0f;
-	ghostPositionZ =1000.0f;
-	ghostPosition[0] = VGet(ghostPositionX, 0.0f, ghostPositionZ);
-	ghostAngle[0] = atan2(ghostPositionX, ghostPositionZ);
+
+	//敵のモデルをロードしてvectorに格納
+	enemyModels.push_back(EnemyModel(MV1LoadModel("dat/ミク三姉妹のお化け/ミクお化け/ミクお化けVer1.0.pmd")));
+	for (int i = 1; i < GHOST_NUMBER; i++) {
+		enemyModels.push_back(EnemyModel(MV1DuplicateModel(enemyModels[0].modelHandle)));
+	}
+	ghostCounter++;
+
 	
 
 	//zバッファを有効に
@@ -125,10 +131,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	MV1SetUseZBuffer(bgModelHandle2,TRUE);
 	MV1SetWriteZBuffer(bgModelHandle2, TRUE);
 
-	
-	//その他初期化
-	debagModeFlag = 0;
-	ghostCounter = 1;
+
+
 	
 	int loopCounter = 0;
 	//メインループ
@@ -153,87 +157,66 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 		//プレイヤーとカメラの移動、描画
 		{
-			// Q,Rキー：カメラの水平角度を変更, W,Eキー：カメラの垂直角度を変更
-			CameraRotationKey(cameraHAngle, cameraVAngle);
-
-			// 移動ベクトルを初期化
-			playerModel.moveVector = VGet(0.0f, 0.0f, 0.0f);
-
-			//方向キー：1フリップでのキャラクターの移動ベクトルと向きを設定, アニメーション番号を走りに設定
-			playerModel.moveKey(cameraHAngle);
-
-			//プレイヤーの位置と向きを算出
-			playerModel.calPosition(cameraHAngle);
-
-			//プレイヤーの位置と向きをセット後、描画
-			playerModel.drawModel();
-			MV1DrawModel(playerModel.modelHandle);
-
-
-			// カメラの位置と向きを算出、セット
-			SetCameraPosition(playerModel.position, cameraVAngle, cameraHAngle);
-
-			//必要ならアニメーションを変更、時間を進める
-			playerModel.animChange();
+			
+			//playerModel.moveVector = VGet(0.0f, 0.0f, 0.0f);// 移動ベクトルを初期化
+			//playerModel.moveKey(cameraHAngle);//方向キー：1フリップでのキャラクターの移動ベクトルと向きを設定, アニメーション番号を走りに設定
+			//playerModel.calPosition(cameraHAngle);//プレイヤーの位置と向きを算出
+			//playerModel.drawModel();//プレイヤーの位置と向きをセット後、描画
+			//playerModel.animChange();//必要ならアニメーションを変更、時間を進める
+		//	SetCameraPosition(playerModel.position, cameraVAngle, cameraHAngle);// カメラの位置と向きを算出、セット
+		//	CameraRotationKey(cameraHAngle, cameraVAngle);// Q,Rキー：カメラの水平角度を変更, W,Eキー：カメラの垂直角度を変更
+			
 		}
+
+		//{
+
+			playerModel.moveVector = VGet(0.0f, 0.0f, 0.0f);// 移動ベクトルを初期化
+			playerModel.moveKey(camera.hAngle);//方向キー：1フリップでのキャラクターの移動ベクトルと向きを設定, アニメーション番号を走りに設定
+			playerModel.calPosition(camera.hAngle);//プレイヤーの位置と向きを算出
+			playerModel.drawModel();//プレイヤーの位置と向きをセット後、描画
+			playerModel.animChange();//必要ならアニメーションを変更、時間を進める
+			camera.setCameraPosition(playerModel.position);// カメラの位置と向きを算出、セット
+			camera.cameraRotationKey();// Q,Rキー：カメラの水平角度を変更, W,Eキー：カメラの垂直角度を変更
+
+		//}
 			
 
 		//一定時間ごとに敵の数を増やす
+
 		if (loopCounter%GHOST_TIME == 0) {
 			do {
-				
-				ghostPositionX = rand() % 2401 - 1200;
-				ghostPositionZ = rand() % 2401 - 1200;
-				ghostPosition[ghostCounter] = VGet(ghostPositionX, 0.0f, ghostPositionZ);
-				ghostToPlayer[ghostCounter] = VSub(playerModel.position, ghostPosition[ghostCounter]);
-			} while (VSize(ghostToPlayer[ghostCounter]) <GHOST_DISTANCE  );
+				enemyModels[ghostCounter].position = VGet(rand() % 2401 - 1200, 0.0f, rand() % 2401 - 1200);
+			} while (VSize(VSub(playerModel.position, enemyModels[ghostCounter].position)) < GHOST_DISTANCE); //はじめから近すぎたらやりなおし
 
-			if (ghostNumberFlag == FALSE) {
-				ghostModelHandle[ghostCounter] = MV1DuplicateModel(ghostModelHandle[0]);
-				MV1SetOpacityRate(ghostModelHandle[ghostCounter], GHOST_TRANSPARENT_RATE); //敵モデルの半透明化
-				MV1SetScale(ghostModelHandle[ghostCounter], VGet(4.0f, 4.0f, 4.0f));
-			}
+	
 			ghostCounter++;
 			if (ghostCounter == GHOST_NUMBER) {
 				ghostNumberFlag = TRUE;
-				ghostCounter = 0;
+				ghostCounter = 0; //↓のループで再描画するモデルの番号を指定するために、0からGHOST_NUMBERの間でループ
 			}
 		}
-		
 
-		//ループごとに全エネミーを移動、再描画
-		
-			
-			for (int d = 0; d < (ghostNumberFlag? GHOST_NUMBER : ghostCounter); d++) {
+
+		//ループごとに全エネミーを移動、再描画、プレイヤーに接触していたらゲームオーバー
+
+			for (int d = 0; d < (ghostNumberFlag ? GHOST_NUMBER : ghostCounter); d++) {
 				// ３Ｄモデルに新しい位置座標をセット
-				ghostToPlayer[d] = VSub(playerModel.position, ghostPosition[d]);
+				enemyModels[d].enemyToPlayer = VSub(playerModel.position, enemyModels[d].position);
 
-				if (VSize(ghostToPlayer[d]) < 13) {
+				if (VSize(enemyModels[d].enemyToPlayer) < 13) {
 					SetFontSize(100);
 					SetFontThickness(10);
-					//ChangeFont("ＭＳ 明朝");                    
-					//ChangeFontType(DX_FONTTYPE_ANTIALIASING);     //アンチエイリアスフォントに変更
 					DrawFormatString(30, 550, GetColor(255, 0, 0), "GAME OVER");
-					//DrawFormatString(500, 550, GetColor(255, 0, 0), "SCORE %d", loopCounter);
-					
 				}
-
-				ghostMoveVector[d] = VGet(VNorm(ghostToPlayer[d]).x * GHOST_MOVESPEED, 0.0f, VNorm(ghostToPlayer[d]).z*GHOST_MOVESPEED);
-				ghostPosition[d] = VAdd(ghostPosition[d], ghostMoveVector[d]);
-				MV1SetPosition(ghostModelHandle[d], ghostPosition[d]);
-
-
-				//向きをプレイヤーのほうに
-				ghostAngle[d] = atan2(ghostPosition[d].x - playerModel.position.x, ghostPosition[d].z - playerModel.position.z);
-				MV1SetRotationXYZ(ghostModelHandle[d], VGet(0.0f, ghostAngle[d], 0.0f));
-
+				//位置を変更、向きをプレイヤーのほうに
+				enemyModels[d].renewPosition(playerModel.position);
+	
 				//描画
-				MV1DrawModel(ghostModelHandle[d]);
+				enemyModels[d].drawModel();
 			}
 		
 
-		
-
+	
 		//Lキーでデバッグモード(格子とか位置示すもの)
 		if (key[KEY_INPUT_D] == 1 && oldKey[KEY_INPUT_D]==0) {
 			if (debagModeFlag == 0) debagModeFlag = 1;
@@ -241,10 +224,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		}
 		if (debagModeFlag == 1) DrawLattice();
 
-
-		//SetFontSize(130);
-		//SetFontThickness(15);
-		//DrawFormatString(100, 0, GetColor(255, 0, 0), "SCORE %d", loopCounter);
 
 	}
 
@@ -293,6 +272,7 @@ void CameraRotationKey(float &cameraHAngle, float &cameraVAngle) {
 		cameraVAngle += CAMERA_ANGLE_SPEED;
 		if (cameraVAngle >= 89.0f) {
 			cameraVAngle = 89.0f;
+
 		}
 	}
 }
