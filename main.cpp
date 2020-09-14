@@ -61,14 +61,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
 	srand((unsigned int)time(NULL)); //疑似乱数のシード値を時刻に
-	static int nowMode; //現在の画面(シーン)
+	
 
 	
-	//背景関連
-	int bgModelHandle1, bgModelHandle2;
-	//カメラ関係
-	float  cameraHAngle, cameraVAngle;
-	CameraControler camera;
+
+	
 
 	//敵関連
 	bool ghostNumberFlag = FALSE;
@@ -82,6 +79,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	char key[256]; //キーの押下状態を格納 
 	char oldKey[256]; //前のフレームのキーの押下状態を格納
 
+	
+
 
 
 	
@@ -90,6 +89,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	ChangeWindowMode(TRUE), SetWindowSizeChangeEnableFlag(TRUE), SetBackgroundColor(0, 0, 0), SetDrawScreen(DX_SCREEN_BACK);
 	SetGraphMode(1000, 750, 32);
 	if (DxLib_Init() == -1)	{return -1;}
+
+	CameraControler camera;
 
 
 	//プレイヤーのモデルをロード
@@ -100,22 +101,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
 	//バックグラウンドのモデルをロード
-	bgModelHandle1 = MV1LoadModel("dat/アノマロさん/デッドマスターの部屋/デッドマスターの部屋.x");
-	bgModelHandle2 = MV1LoadModel("dat/packaged用ステージ1・始まりの場所/packaged用共通の空.x");
+	int bgModelHandle1 = MV1LoadModel("dat/アノマロさん/デッドマスターの部屋/デッドマスターの部屋.x");
+	int bgModelHandle2 = MV1LoadModel("dat/packaged用ステージ1・始まりの場所/packaged用共通の空.x");
 	MV1SetScale(bgModelHandle1, VGet(30.0f, 30.0f, 30.0f));
 	MV1SetScale(bgModelHandle2, VGet(30.0f, 30.0f, 30.0f));
 	
-	
-
-
-	// カメラの向きを初期化
-	//cameraHAngle = 0.0f;
-	//cameraVAngle = -3.0f;
-	SetCameraNearFar(15.0f, 3500.0f);
-
-
-
-
 	//敵のモデルをロードしてvectorに格納
 	enemyModels.push_back(EnemyModel(MV1LoadModel("dat/ミク三姉妹のお化け/ミクお化け/ミクお化けVer1.0.pmd")));
 	for (int i = 1; i < GHOST_NUMBER; i++) {
@@ -126,10 +116,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	
 
 	//zバッファを有効に
-	SetUseZBufferFlag(TRUE);
-	SetWriteZBuffer3D(TRUE);
-	MV1SetUseZBuffer(bgModelHandle2,TRUE);
-	MV1SetWriteZBuffer(bgModelHandle2, TRUE);
+	//SetUseZBufferFlag(TRUE);
+	//SetWriteZBuffer3D(TRUE);
+	//MV1SetUseZBuffer(bgModelHandle2,TRUE);
+	//MV1SetWriteZBuffer(bgModelHandle2, TRUE);
 
 
 
@@ -137,9 +127,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	int loopCounter = 0;
 	//メインループ
 	while (ProcessLoop() == 0) {
+
 		loopCounter++;
 		if (loopCounter == 30) {
-			loopCounter == 0;
+			loopCounter = 0;
 		}else
 			loopCounter++;
 		
@@ -156,33 +147,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
 		//プレイヤーとカメラの移動、描画
-		{
-			
-			//playerModel.moveVector = VGet(0.0f, 0.0f, 0.0f);// 移動ベクトルを初期化
-			//playerModel.moveKey(cameraHAngle);//方向キー：1フリップでのキャラクターの移動ベクトルと向きを設定, アニメーション番号を走りに設定
-			//playerModel.calPosition(cameraHAngle);//プレイヤーの位置と向きを算出
-			//playerModel.drawModel();//プレイヤーの位置と向きをセット後、描画
-			//playerModel.animChange();//必要ならアニメーションを変更、時間を進める
-		//	SetCameraPosition(playerModel.position, cameraVAngle, cameraHAngle);// カメラの位置と向きを算出、セット
-		//	CameraRotationKey(cameraHAngle, cameraVAngle);// Q,Rキー：カメラの水平角度を変更, W,Eキー：カメラの垂直角度を変更
-			
-		}
+		playerModel.moveVector = VGet(0.0f, 0.0f, 0.0f);// 移動ベクトルを初期化
+		playerModel.moveKey(camera.hAngle);//方向キー：1フリップでのキャラクターの移動ベクトルと向きを設定, アニメーション番号を走りに設定
+		playerModel.calPosition(camera.hAngle);//プレイヤーの位置と向きを算出
+		playerModel.drawModel();//プレイヤーの位置と向きをセット後、描画
+		playerModel.animChange();//必要ならアニメーションを変更、時間を進める
+		camera.setCameraPosition(playerModel.position);// カメラの位置と向きを算出、セット
+		camera.cameraRotationKey();// Q,Rキー：カメラの水平角度を変更, W,Eキー：カメラの垂直角度を変更
 
-		//{
 
-			playerModel.moveVector = VGet(0.0f, 0.0f, 0.0f);// 移動ベクトルを初期化
-			playerModel.moveKey(camera.hAngle);//方向キー：1フリップでのキャラクターの移動ベクトルと向きを設定, アニメーション番号を走りに設定
-			playerModel.calPosition(camera.hAngle);//プレイヤーの位置と向きを算出
-			playerModel.drawModel();//プレイヤーの位置と向きをセット後、描画
-			playerModel.animChange();//必要ならアニメーションを変更、時間を進める
-			camera.setCameraPosition(playerModel.position);// カメラの位置と向きを算出、セット
-			camera.cameraRotationKey();// Q,Rキー：カメラの水平角度を変更, W,Eキー：カメラの垂直角度を変更
-
-		//}
 			
 
 		//一定時間ごとに敵の数を増やす
-
 		if (loopCounter%GHOST_TIME == 0) {
 			do {
 				enemyModels[ghostCounter].position = VGet(rand() % 2401 - 1200, 0.0f, rand() % 2401 - 1200);
@@ -195,7 +171,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 				ghostCounter = 0; //↓のループで再描画するモデルの番号を指定するために、0からGHOST_NUMBERの間でループ
 			}
 		}
-
 
 		//ループごとに全エネミーを移動、再描画、プレイヤーに接触していたらゲームオーバー
 
@@ -245,83 +220,6 @@ int ProcessLoop() {
 	if (ClearDrawScreen() != 0)return -1;
 	return 0;
 }
-
-
-// Q,Rキー：カメラの水平角度を変更, W,Eキー：カメラの垂直角度を変更
-
-void CameraRotationKey(float &cameraHAngle, float &cameraVAngle) {
-	if (CheckHitKey(KEY_INPUT_R) == 1) {
-		cameraHAngle -= CAMERA_ANGLE_SPEED;
-		if (cameraHAngle <= -180) {
-			cameraHAngle += 360;
-		}
-	}
-	if (CheckHitKey(KEY_INPUT_Q) == 1) {
-		cameraHAngle += CAMERA_ANGLE_SPEED;
-		if (cameraHAngle >= 180) {
-			cameraHAngle -= 360;
-		}
-	}
-	if (CheckHitKey(KEY_INPUT_E) == 1) {
-		cameraVAngle -= CAMERA_ANGLE_SPEED;
-		if (cameraVAngle <= -5.0f) {
-			cameraVAngle = -5.0f;
-		}
-	}
-	if (CheckHitKey(KEY_INPUT_W) == 1) {
-		cameraVAngle += CAMERA_ANGLE_SPEED;
-		if (cameraVAngle >= 89.0f) {
-			cameraVAngle = 89.0f;
-
-		}
-	}
-}
-
-
-
-
-
-
-
-
-
-// カメラの位置と向きを算出、セット
-void SetCameraPosition(VECTOR position, float cameraVAngle, float cameraHAngle) {
-
-	VECTOR TempPosition1;
-	VECTOR TempPosition2;
-	VECTOR CameraPosition;
-	VECTOR CameraLookAtPosition;
-	float sinParam, cosParam;
-
-
-	// 注視点はキャラクターモデルの座標から CAMERA_LOOK_AT_HEIGHT 分だけ高い位置
-	CameraLookAtPosition = position;
-	CameraLookAtPosition.y += CAMERA_LOOK_AT_HEIGHT;
-
-	// カメラの位置をカメラの水平角度と垂直角度から算出
-	// 最初に垂直角度を反映した位置を算出
-	sinParam = sin(cameraVAngle / 180.0f * DX_PI_F);
-	cosParam = cos(cameraVAngle / 180.0f * DX_PI_F);
-	TempPosition1.x = 0.0f;
-	TempPosition1.y = sinParam * CAMERA_LOOK_AT_DISTANCE;
-	TempPosition1.z = -cosParam * CAMERA_LOOK_AT_DISTANCE;
-
-	// 次に水平角度を反映した位置を算出
-	sinParam = sin(cameraHAngle / 180.0f * DX_PI_F);
-	cosParam = cos(cameraHAngle / 180.0f * DX_PI_F);
-	TempPosition2.x = cosParam * TempPosition1.x - sinParam * TempPosition1.z;
-	TempPosition2.y = TempPosition1.y;
-	TempPosition2.z = sinParam * TempPosition1.x + cosParam * TempPosition1.z;
-
-	// 算出した座標に注視点の位置を加算したものがカメラの位置
-	CameraPosition = VAdd(TempPosition2, CameraLookAtPosition);
-
-	// カメラの設定に反映する
-	SetCameraPositionAndTarget_UpVecY(CameraPosition, CameraLookAtPosition);
-}
-
-
 
 
 
